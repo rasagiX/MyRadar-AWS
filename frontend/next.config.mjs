@@ -1,15 +1,5 @@
-import { fileURLToPath } from 'node:url'
-
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Required for AWS Amplify SSR deployment
-  output: 'standalone',
-
-  // Keep Next's server-file tracing inside this application. The repository
-  // also has a root lockfile, which otherwise makes Next trace from the
-  // parent user directory during Amplify builds.
-  outputFileTracingRoot: fileURLToPath(new URL('./', import.meta.url)),
-
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -24,6 +14,7 @@ const nextConfig = {
     '@aws-sdk/lib-dynamodb',
     '@aws-sdk/client-iot-data-plane',
     '@aws-sdk/client-location',
+    '@aws-sdk/client-sns',
   ],
 
   async rewrites() {
@@ -39,39 +30,20 @@ const nextConfig = {
 
   async headers() {
     return [
-      // ── Security headers for all routes ──────────────────────────────────
       {
         source: '/(.*)',
         headers: [
-          { key: 'X-Frame-Options',        value: 'DENY' },
-          { key: 'X-Content-Type-Options',  value: 'nosniff' },
-          { key: 'Referrer-Policy',         value: 'strict-origin-when-cross-origin' },
-          { key: 'Permissions-Policy',      value: 'geolocation=()' },
+          { key: 'X-Frame-Options',       value: 'DENY' },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'Referrer-Policy',        value: 'strict-origin-when-cross-origin' },
         ],
       },
-      // ── Service Worker: must not be cached by the browser HTTP cache ──────
-      // If sw.js is cached, the browser won't pick up updates.
       {
         source: '/sw.js',
         headers: [
           { key: 'Cache-Control',          value: 'no-cache, no-store, must-revalidate' },
           { key: 'Service-Worker-Allowed', value: '/' },
           { key: 'Content-Type',           value: 'application/javascript' },
-        ],
-      },
-      // ── Manifest: short cache ─────────────────────────────────────────────
-      {
-        source: '/manifest.json',
-        headers: [
-          { key: 'Cache-Control', value: 'public, max-age=3600' },
-          { key: 'Content-Type',  value: 'application/manifest+json' },
-        ],
-      },
-      // ── MapLibre worker: long cache (content won't change without rename) ─
-      {
-        source: '/maplibre-gl-worker.mjs',
-        headers: [
-          { key: 'Cache-Control', value: 'public, max-age=86400' },
         ],
       },
     ]
