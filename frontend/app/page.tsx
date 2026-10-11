@@ -22,12 +22,13 @@ import { DisasterAI }    from '@/components/DisasterAI'
 import { SyncPanel }       from '@/components/SyncPanel'
 import { OperationsPanel } from '@/components/OperationsPanel'
 import { IncidentPanel }   from '@/components/IncidentPanel'
-import { DisasterMapLive, type LayerFlags } from '@/components/DisasterMap'
+import { IoTPanel }        from '@/components/IoTPanel'
+import { DisasterMapLive, type LayerFlags, type MapStyle } from '@/components/DisasterMap'
 import type { MapSelection } from '@/components/disaster-map'
 
 // ─── Nav config ──────────────────────────────────────────────────────────────
 type NavId = 'overview' | 'evacuation' | 'rescue' | 'relief'
-           | 'waste' | 'twin' | 'sensors' | 'ai' | 'sync' | 'ops' | 'incidents'
+           | 'waste' | 'twin' | 'sensors' | 'ai' | 'sync' | 'ops' | 'incidents' | 'iot'
 
 interface NavItem {
   id:       NavId
@@ -48,6 +49,7 @@ const NAV: NavItem[] = [
   { id: 'twin',       label: 'Digital Twin',  icon: Boxes },
   { id: 'sensors',    label: 'Sensors',       icon: Activity },
   { id: 'ai',         label: 'MyRadar AI',    icon: Bot,        section: 'SYSTEM' },
+  { id: 'iot',        label: 'IoT + SNS',     icon: Radio },
   { id: 'sync',       label: 'AWS Sync',      icon: RefreshCw,  badge: 'sync' },
 ]
 
@@ -240,68 +242,76 @@ function OverviewPanel({ onNav }: { onNav:(id:NavId)=>void }) {
   const {
     severity, floodRisk, affectedPeople, averageWaterLevel,
     rescueTeams, shelters, roads, alerts,
-    activeIncidentCount, wasteZones,
+    activeIncidentCount, wasteZones, sensors,
   } = useDisasterState()
 
   const active   = rescueTeams.filter(t => t.status !== 'AVAILABLE' && t.status !== 'OFFLINE').length
   const blocked  = roads.filter(r => r.status === 'BLOCKED' || r.status === 'FLOODED').length
   const unacked  = alerts.filter(a => !a.acknowledged).length
   const safeSh   = shelters.filter(s => s.status === 'SAFE').length
+  const critSh   = shelters.filter(s => s.status === 'CRITICAL').length
+  const maxWater = Math.max(...sensors.filter(s => s.type === 'WATER_LEVEL').map(s => s.reading), 0)
 
   const sevColor = {
     CRITICAL:'text-red-400', HIGH:'text-amber-300',
     ELEVATED:'text-yellow-300', NORMAL:'text-lime-400',
   }[severity] ?? 'text-white'
 
-  const fillCls  = floodRisk > 70 ? 'pg-red' : floodRisk > 45 ? 'pg-amber' : 'pg-green'
+  const sevBg = {
+    CRITICAL:'from-red-500/8', HIGH:'from-amber-500/8',
+    ELEVATED:'from-yellow-500/6', NORMAL:'from-lime-500/5',
+  }[severity] ?? 'from-transparent'
+
+  const fillCls = floodRisk > 70 ? 'pg-red' : floodRisk > 45 ? 'pg-amber' : 'pg-green'
 
   return (
     <div className="flex flex-col h-full overflow-y-auto">
 
-      {/* severity banner */}
-      <div className="sev-banner">
-        <div className="sev-label">Disaster Status</div>
+      {/* Severity banner */}
+      <div className={`sev-banner bg-gradient-to-r ${sevBg} to-transparent`}>
+        <div className="sev-label">National Disaster Status</div>
         <div className={`sev-value ${sevColor}`}>{severity}</div>
-        <div className="flex items-center gap-2 mt-1.5">
+        <div className="flex items-center gap-3 mt-2">
           <span className="tag text-white/30">Flood Risk</span>
-          <span className={`tag font-bold ${floodRisk > 70 ? 'text-red-300' : floodRisk > 45 ? 'text-amber-300' : 'text-lime-400'}`}>
+          <span className={`tag font-bold text-[11px] ${floodRisk > 70 ? 'text-red-300' : floodRisk > 45 ? 'text-amber-300' : 'text-lime-400'}`}>
             {floodRisk}%
           </span>
           <div className="flex-1 sev-bar">
             <div className={`sev-fill ${fillCls}`} style={{ width:`${floodRisk}%` }}/>
           </div>
+          <span className="tag text-white/25">peak {maxWater.toFixed(1)}m</span>
         </div>
       </div>
 
-      {/* metrics */}
+      {/* Key metrics — large numbers */}
       <div className="stats-grid">
         {([
-          ['Affected',      affectedPeople.toLocaleString(), Users,         'text-white/80'],
-          ['Active Teams',  String(active),                  Siren,         'text-orange-300'],
-          ['Water Level',   `${averageWaterLevel.toFixed(1)}m`, CloudRain,  floodRisk > 50 ? 'text-red-300' : 'text-cyan-300'],
-          ['Roads Blocked', String(blocked),                 Route,         blocked > 3 ? 'text-red-300' : 'text-amber-300'],
-          ['Safe Shelters', String(safeSh),                  Home,          'text-lime-400'],
-          ['Alerts',        String(unacked),                  Bell,          unacked > 2 ? 'text-red-300' : 'text-amber-300'],
-          ['Incidents',     String(activeIncidentCount),     AlertTriangle, 'text-red-300'],
-          ['Waste Zones',   String(wasteZones.length),       Search,        'text-amber-300'],
+          ['Affected',      affectedPeople.toLocaleString('en-IN'), Users,         floodRisk > 60 ? 'text-red-300' : 'text-white/85'],
+          ['Teams Active',  String(active),                          Siren,         active > 6 ? 'text-orange-300' : 'text-amber-300'],
+          ['Water Level',   `${averageWaterLevel.toFixed(1)}m`,      CloudRain,     averageWaterLevel > 3 ? 'text-red-300' : averageWaterLevel > 2 ? 'text-amber-300' : 'text-cyan-300'],
+          ['Roads Blocked', String(blocked),                         Route,         blocked > 5 ? 'text-red-300' : 'text-amber-300'],
+          ['Safe Shelters', `${safeSh}/${shelters.length}`,          Home,          critSh > 0 ? 'text-amber-300' : 'text-lime-400'],
+          ['Open Alerts',   String(unacked),                         Bell,          unacked > 4 ? 'text-red-300' : 'text-amber-300'],
+          ['Incidents',     String(activeIncidentCount),             AlertTriangle, activeIncidentCount > 5 ? 'text-red-300' : 'text-orange-300'],
+          ['Hazard Zones',  String(wasteZones.length),               Search,        'text-amber-300'],
         ] as const).map(([lbl, val, Icon, cls]) => (
           <div key={lbl} className="stat-cell">
             <div className="stat-lbl">
               <span>{lbl}</span>
-              <Icon size={10} className="opacity-40"/>
+              <Icon size={11} className="opacity-35"/>
             </div>
             <div className={`stat-val ${cls}`}>{val}</div>
           </div>
         ))}
       </div>
 
-      {/* offline banner */}
+      {/* Offline banner */}
       <OfflineBanner/>
 
-      {/* recent alerts */}
+      {/* Recent alerts */}
       <div className="psec">
         <span className="psec-t">Recent Alerts</span>
-        <span className="psec-v">{alerts.length} total</span>
+        <span className="psec-v">{unacked > 0 ? `${unacked} unread` : `${alerts.length} total`}</span>
       </div>
       {alerts.slice(0, 5).map(a => {
         const dotCls = {
@@ -313,7 +323,7 @@ function OverviewPanel({ onNav }: { onNav:(id:NavId)=>void }) {
           RESCUE:'text-orange-300', SHELTER:'text-sky-300', SUPPLY:'text-green-300',
         }[a.severity] ?? 'text-white/50'
         return (
-          <div key={a.id} className={`alert-row ar-${a.severity} ${a.acknowledged ? 'opacity-35' : ''}`}>
+          <div key={a.id} className={`alert-row ar-${a.severity} ${a.acknowledged ? 'opacity-30' : ''}`}>
             <span className={`alert-dot ${dotCls}`}/>
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between gap-2">
@@ -326,7 +336,7 @@ function OverviewPanel({ onNav }: { onNav:(id:NavId)=>void }) {
         )
       })}
 
-      {/* quick-access grid */}
+      {/* Quick access */}
       <div className="psec mt-1">
         <span className="psec-t">Quick Access</span>
       </div>
@@ -334,19 +344,18 @@ function OverviewPanel({ onNav }: { onNav:(id:NavId)=>void }) {
         {([
           ['Evacuation','evacuation', Route,   'text-lime-400'],
           ['Rescue',    'rescue',     Siren,   'text-orange-300'],
-          ['Relief',    'relief',     Truck,   'text-cyan-300'],
+          ['Incidents', 'incidents',  AlertTriangle, 'text-red-300'],
           ['AI Query',  'ai',         Bot,     'text-violet-300'],
         ] as const).map(([lbl, id, Icon, cls]) => (
-          <button key={id} onClick={() => onNav(id)}
-            className="qa-cell">
-            <Icon size={14} className={cls}/>
-            <span className={`text-[11px] font-medium ${cls}`}>{lbl}</span>
-            <ChevronRight size={10} className="ml-auto text-white/20"/>
+          <button key={id} onClick={() => onNav(id)} className="qa-cell">
+            <Icon size={15} className={cls}/>
+            <span className={`text-[12px] font-medium ${cls}`}>{lbl}</span>
+            <ChevronRight size={11} className="ml-auto text-white/20"/>
           </button>
         ))}
       </div>
 
-      {/* sim HUD */}
+      {/* Sim HUD */}
       <SimHUD/>
     </div>
   )
@@ -361,6 +370,7 @@ function PanelContent({ id, onNav }: { id: NavId; onNav:(x:NavId)=>void }) {
     case 'relief':     return <ReliefPanel/>
     case 'incidents':  return <IncidentPanel/>
     case 'ops':        return <OperationsPanel/>
+    case 'iot':        return <IoTPanel/>
     case 'waste':      return <WasteRadar/>
     case 'twin':       return <DigitalTwin/>
     case 'sensors':    return <SensorPanel/>
@@ -377,6 +387,7 @@ export default function Page() {
   const [mapSel,       setMapSel]       = useState<MapSelection | null>(null)
   const [layers,       setLayers]       = useState<LayerFlags>(DEFAULT_LAYERS)
   const [showLayers,   setShowLayers]   = useState(false)
+  const [mapStyle,     setMapStyle]     = useState<MapStyle>('satellite')
   // track layer panel top offset based on how many ctrl buttons are shown
   const layerPanelTop = '10.5rem'
 
@@ -503,7 +514,7 @@ export default function Page() {
           and the map-wrap inside fills 100% via CSS (.map-wrap { width:100%; height:100% })
         */}
         <section className="relative flex-1 overflow-hidden min-w-0 min-h-0">
-          <DisasterMapLive onSelect={setMapSel} layers={layers}/>
+          <DisasterMapLive onSelect={setMapSel} layers={layers} mapStyle={mapStyle}/>
 
           {/* Offline overlay */}
           {isOffline && (
@@ -521,6 +532,20 @@ export default function Page() {
 
           {/* Map controls */}
           <div className="map-ctrl-group">
+            {/* Map style switcher */}
+            {([
+              ['satellite', '🛰 Satellite'],
+              ['streets',   '🗺 Streets'],
+              ['dark',      '🌑 Dark'],
+            ] as const).map(([s, label]) => (
+              <button key={s} onClick={() => setMapStyle(s)}
+                className={`map-ctrl ${mapStyle === s ? 'active' : ''}`}>
+                {label}
+              </button>
+            ))}
+
+            <div style={{ height: 6 }}/>
+
             <button onClick={() => setShowLayers(v => !v)}
               className={`map-ctrl ${showLayers ? 'active' : ''}`}>
               <Layers3 size={11}/> Layers
@@ -561,16 +586,17 @@ export default function Page() {
           {/* Map legend */}
           <div className="map-legend">
             {[
-              ['bg-red-400',    'Critical'],
-              ['bg-orange-400', 'Rescue'],
-              ['bg-amber-400',  'Warning'],
-              ['bg-lime-400',   'Safe Route'],
-              ['bg-sky-400',    'Shelter'],
-              ['bg-cyan-500',   'Flood Zone'],
-              ['bg-yellow-500', 'Waste'],
-            ].map(([cls, lbl]) => (
-              <span key={lbl} className="flex items-center tag text-white/45">
-                <i className={`ldot ${cls}`}/>{lbl}
+              ['bg-red-500',    '#f87171',  'Critical'],
+              ['bg-orange-400', '#fb923c',  'Rescue'],
+              ['bg-amber-400',  '#f59e0b',  'Warning'],
+              ['bg-lime-400',   '#84cc16',  'Safe Route'],
+              ['bg-sky-400',    '#38bdf8',  'Shelter'],
+              ['bg-blue-500',   '#3b82f6',  'Flood Zone'],
+              ['bg-yellow-400', '#fbbf24',  'Hazard'],
+            ].map(([bgCls, color, lbl]) => (
+              <span key={lbl} className="flex items-center gap-1.5 tag text-white/55">
+                <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${bgCls}`}/>
+                <span style={{ color }}>{lbl}</span>
               </span>
             ))}
           </div>
@@ -586,12 +612,12 @@ export default function Page() {
               <div className="intel-hdr-title">Operational View</div>
             </div>
             <div className="flex items-center gap-2">
-              <span className="flex items-center gap-1.5 tag text-white/25">
-                <span className="w-1.5 h-1.5 rounded-full bg-lime-400 net-pulse inline-block"/>
-                live
-              </span>
+              <div className="flex items-center gap-1.5 tag-xs text-white/30">
+                <span className="w-1.5 h-1.5 rounded-full bg-lime-400 net-pulse inline-block flex-shrink-0"/>
+                LIVE
+              </div>
               <button onClick={() => setPanelOpen(false)}
-                className="text-white/25 hover:text-white/70 md:hidden">
+                className="text-white/25 hover:text-white/70 md:hidden ml-1">
                 <X size={14}/>
               </button>
             </div>

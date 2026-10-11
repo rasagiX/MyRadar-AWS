@@ -1,31 +1,21 @@
 'use client'
 
-/**
- * MyRadar — Live Disaster Map
- *
- * Uses dynamic import to ensure maplibre-gl config (worker disable)
- * runs before the library initialises. This is the only reliable way
- * to prevent "Worker failed to load" in Next.js + Turbopack.
- */
-
 import dynamic from 'next/dynamic'
 import type { MapSelection } from '@/components/disaster-map'
-import type { LayerFlags } from '@/components/DisasterMapInner'
+import type { LayerFlags, MapStyle } from '@/components/DisasterMapInner'
 
-// Re-export so page.tsx can import from one place
-export type { LayerFlags }
+export type { LayerFlags, MapStyle }
 
-// Dynamically import the inner map — no SSR, deferred until client hydration
-// By the time this loads, the browser env is fully ready for WebWorker config
 const Inner = dynamic(
   () => import('@/components/DisasterMapInner').then(m => ({ default: m.DisasterMapInner })),
   {
     ssr: false,
     loading: () => (
-      <div className="map-wrap flex items-center justify-center">
+      <div className="map-wrap flex items-center justify-center"
+           style={{ background: '#0d1b2e' }}>
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
-          <span className="tag text-cyan-400/60">Initialising map…</span>
+          <span className="tag text-cyan-400/60">Loading map…</span>
         </div>
       </div>
     ),
@@ -33,8 +23,9 @@ const Inner = dynamic(
 )
 
 interface Props {
-  onSelect: (sel: MapSelection) => void
-  layers?:  LayerFlags
+  onSelect:  (sel: MapSelection) => void
+  layers?:   LayerFlags
+  mapStyle?: MapStyle
 }
 
 export function DisasterMapLive(props: Props) {

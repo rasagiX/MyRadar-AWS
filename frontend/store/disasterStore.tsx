@@ -40,6 +40,7 @@ import {
   persistState, clearCache, restoreState,
 } from '@/services/local/cache'
 import { getAllQueued, clearQueue } from '@/services/local/syncQueue'
+import { publishSNSAlert, publishIoTSensors } from '@/services/aws/snsAlerts'
 
 // ─── Actions ──────────────────────────────────────────────────────────────────
 export type DisasterAction =
@@ -389,6 +390,56 @@ export function DisasterProvider({ children }: { children: React.ReactNode }) {
 
     poll()
     const id = setInterval(poll, 5_000)
+    return () => clearInterval(id)
+  }, [])
+
+  // ── SNS: auto-alert when sensor crosses critical threshold ───────────────
+  useEffect(() => {
+    if (netRef.current === 'OFFLINE') return
+    const criticalSensors = state.sensors.filter(
+      s => s.type === 'WATER_LEVEL' && s.reading > 3.5,
+    )
+    for (const sensor of criticalSensors) {
+      publishSNSAlert(
+        {
+          severity:   'CRITICAL',
+          title:      `Extreme Flood Warning — ${sensor.name}`,
+          message:    `${sensor.name} is reading ${sensor.reading.toFixed(2)}m (CRITICAL). Immediate response required.`,
+          sensor:     sensor.id,
+          waterLevel: sensor.reading,
+          location:   sensor.name,
+        },
+        `sensor-critical-${sensor.id}`,   // debounce key
+      )
+    }
+  // Re-run only when sensor readings change (not every render)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.sensors.map(s => s.reading).join(',')])
+
+  // ── SNS: alert when shelter goes CRITICAL ────────────────────────────────
+  useEffect(() => {
+    if (netRef.current === 'OFFLINE') return
+    const criticalShelters = state.shelters.filter(s => s.status === 'CRITICAL')
+    for (const shelter of criticalShelters) {
+      publishSNSAlert(
+        {
+          severity: 'CRITICAL',
+          title:    `Shelter Critical — ${shelter.name}`,
+          message:  `${shelter.name} has reached critical capacity (${shelter.occupancy}/${shelter.capacity}). Immediate resupply and overflow required.`,
+          location: shelter.sector,
+        },
+        `shelter-critical-${shelter.id}`,
+      )
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.shelters.map(s => s.status).join(',')])
+
+  // ── IoT Core: publish sensor telemetry every 10 s ───────────────────────
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (netRef.current === 'OFFLINE') return
+      publishIoTSensors(stateRef.current.sensors)
+    }, 10_000)
     return () => clearInterval(id)
   }, [])
 
