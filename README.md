@@ -452,7 +452,7 @@ MyRadar-AWS/
 | **Offline-first** | IndexedDB + Service Worker — app reloads after Wi-Fi loss |
 | **Real IoT pipeline** | Simulation → IoT Core MQTT → DynamoDB Rule → verified |
 | **Live alerts** | SNS email fires automatically on sensor threshold breach |
-| **AI assistant** | Bedrock Nova Pro with city-specific flood intelligence |
+| **AI assistant** | city-specific flood intelligence |
 | **3D visualization** | MapLibre GL with real satellite imagery + building extrusion |
 | **Data pipeline** | 7 SENSOR_READING records confirmed in DynamoDB |
 | **Production-ready** | TypeScript strict, zero build errors, offline sync |
@@ -462,7 +462,6 @@ MyRadar-AWS/
 ## 👩‍💻 Team
 
 Built for the AWS Hackathon by Rashi Agarwal  
-Account: `348364742197` · Region: `us-east-1`
 
 ---
 
