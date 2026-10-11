@@ -6,8 +6,6 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-
-  // Allow AWS SDK packages on server-side API routes
   serverExternalPackages: [
     '@aws-sdk/client-bedrock-runtime',
     '@aws-sdk/client-dynamodb',
@@ -16,26 +14,14 @@ const nextConfig = {
     '@aws-sdk/client-location',
     '@aws-sdk/client-sns',
   ],
-
-  async rewrites() {
-    const backendUrl = process.env.BACKEND_URL
-    if (!backendUrl) return []
-    return [
-      {
-        source: '/api/nexus/:path*',
-        destination: `${backendUrl}/api/:path*`,
-      },
-    ]
-  },
-
   async headers() {
     return [
       {
         source: '/(.*)',
         headers: [
-          { key: 'X-Frame-Options',       value: 'DENY' },
-          { key: 'X-Content-Type-Options', value: 'nosniff' },
-          { key: 'Referrer-Policy',        value: 'strict-origin-when-cross-origin' },
+          { key: 'X-Frame-Options',        value: 'SAMEORIGIN' },
+          { key: 'X-Content-Type-Options',  value: 'nosniff' },
+          { key: 'Referrer-Policy',         value: 'strict-origin-when-cross-origin' },
         ],
       },
       {
@@ -43,7 +29,6 @@ const nextConfig = {
         headers: [
           { key: 'Cache-Control',          value: 'no-cache, no-store, must-revalidate' },
           { key: 'Service-Worker-Allowed', value: '/' },
-          { key: 'Content-Type',           value: 'application/javascript' },
         ],
       },
     ]
