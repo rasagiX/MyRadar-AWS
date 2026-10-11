@@ -21,18 +21,26 @@ const server = http.createServer(app)
 const PORT   = Number(process.env.PORT) || 4000
 
 // ─── Allowed origins ──────────────────────────────────────────────────────────
-const ALLOWED = [
+const ALLOWED_EXACT = [
   process.env.FRONTEND_URL   || 'http://localhost:3000',
+  'https://my-radar-aws.vercel.app',
   'http://localhost:3000',
   'http://127.0.0.1:3000',
 ]
+
+function isAllowedOrigin(origin: string | undefined): boolean {
+  if (!origin) return true                          // same-host / curl
+  if (ALLOWED_EXACT.includes(origin)) return true  // exact match
+  if (/\.vercel\.app$/.test(origin)) return true   // any *.vercel.app preview URL
+  if (/^http:\/\/localhost:\d+$/.test(origin)) return true  // any localhost port
+  return false
+}
 
 // ─── Middleware ───────────────────────────────────────────────────────────────
 app.use(helmet({ contentSecurityPolicy: false }))
 app.use(cors({
   origin: (origin, cb) => {
-    // Allow no-origin requests (same-host, curl) and listed origins
-    if (!origin || ALLOWED.includes(origin)) cb(null, true)
+    if (isAllowedOrigin(origin)) cb(null, true)
     else cb(new Error(`CORS blocked: ${origin}`))
   },
   credentials: true,
