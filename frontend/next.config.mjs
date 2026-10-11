@@ -1,5 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Required for AWS Amplify SSR deployment
+  output: 'standalone',
+
   typescript: {
     ignoreBuildErrors: true,
   },
