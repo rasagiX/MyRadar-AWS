@@ -9,7 +9,10 @@ applications:
           commands:
             - npm run build
       artifacts:
-        baseDirectory: .next/standalone
+        # Amplify Hosting detects and deploys Next.js SSR from the complete
+        # .next build output. The standalone directory is only for running
+        # `node server.js` on a self-managed server.
+        baseDirectory: .next
         files:
           - '**/*'
       cache:
