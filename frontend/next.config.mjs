@@ -1,7 +1,14 @@
+import { fileURLToPath } from 'node:url'
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Required for AWS Amplify SSR deployment
   output: 'standalone',
+
+  // Keep Next's server-file tracing inside this application. The repository
+  // also has a root lockfile, which otherwise makes Next trace from the
+  // parent user directory during Amplify builds.
+  outputFileTracingRoot: fileURLToPath(new URL('./', import.meta.url)),
 
   typescript: {
     ignoreBuildErrors: true,
