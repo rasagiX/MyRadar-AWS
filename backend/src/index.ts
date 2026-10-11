@@ -148,6 +148,6 @@ setInterval(() => {
 server.listen(PORT, () => {
   console.log(`\n🚀  MyRadar Backend  →  http://localhost:${PORT}/api`)
   console.log(`🔌  WebSocket        →  ws://localhost:${PORT}/ws`)
-  console.log(`🌐  Frontend origin  →  ${ALLOWED[0]}`)
+  console.log(`🌐  Frontend origin  →  ${ALLOWED_EXACT[0]}`)
   console.log(`📦  Environment      →  ${process.env.NODE_ENV ?? 'development'}\n`)
 })
